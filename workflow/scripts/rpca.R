@@ -1,12 +1,15 @@
 loc = "/data/CCBR_Pipeliner/db/PipeDB/scrna4.2Rlibs"
+library(htmltools,lib.loc=loc)
+library(rlang,lib.loc=loc)
+library(globals,lib.loc=loc)
+library(stringr,lib.loc=loc)
 library(Seurat,lib.loc=loc)
 library("SingleR",lib.loc=loc)
 library(scRNAseq,lib.loc=loc)
 library(SingleCellExperiment,lib.loc=loc)
 library(dplyr)
-library(Matrix)
+library(Matrix) 
 library(tools)
-library(stringr,lib.loc=loc)
 library(glmGamPoi,lib.loc=loc)
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -15,35 +18,30 @@ matrix <- as.character(args[1])
 outDirSeurat = as.character(args[2])
 ref = as.character(args[3])
 contrasts = as.character(args[4])
-resolutionString = as.character(strsplit(gsub(",+",",",as.character(args[5])),split=",")[[1]])
-resolution = as.numeric(resolutionString)
 
 
 
-
-options(future.globals.maxSize = 96000 * 1024^2)
+options(future.globals.maxSize = 64000 * 1024^2)
 
 
 file.names <- dir(path = matrix,pattern ="rds")
 
 groupFile = read.delim("groups.tab",header=F,stringsAsFactors = F)
-if (grepl("-",contrasts,fixed=TRUE)){
-  groupFile=groupFile[groupFile$V2 %in% stringr::str_split_fixed(contrasts,pattern = "-",n = Inf)[1,],]
-  # print("test")
-}
-splitFiles = gsub(".rds","",file.names)#str_split_fixed(file.names,pattern = "[.rd]",n = 2)
+groupFile=groupFile[groupFile$V2 %in% stringr::str_split_fixed(contrasts,pattern = "-",n = Inf)[1,],]
+
+splitFiles = gsub(".rds","",file.names)#str_split_fixed(file.names,pattern = "[.rd]",n = 2) 
 splitFiles = stringr::str_split_fixed(splitFiles,pattern = "__",n = Inf)[,1]
 file.names=file.names[match(groupFile$V1,splitFiles,nomatch = F)]
 print(groupFile$V1)
 print(splitFiles)
-print(file.names)
+print(file.names)    
 
 
 readObj = list()
 for (obj in file.names) {
   Name=strsplit(obj,".rds")[[1]][1]
   assign(paste0("S_",Name),readRDS(paste0(matrix,"/",obj)))
-  readObj = append(readObj,paste0("S_",Name))
+  readObj = append(readObj,paste0("S_",Name))  
  }
 
 
@@ -51,7 +49,7 @@ for (obj in file.names) {
 combinedObj.list=list()
 i=1
 for (p in readObj){
-  combinedObj.list[[p]] <- eval(parse(text = readObj[[i]]))
+  combinedObj.list[[p]] <- eval(parse(text = readObj[[i]])) 
   combinedObj.list[[p]]$Sample = names(combinedObj.list)[i]
   i <- i + 1
  }
@@ -68,20 +66,7 @@ selectFeatures <- SelectIntegrationFeatures(object.list = reference.list, nfeatu
 reference.list <- PrepSCTIntegration(object.list = reference.list, anchor.features = selectFeatures, verbose = FALSE)
 reference.list <- lapply(X = reference.list, FUN = RunPCA, features = selectFeatures)
 
-if(sum(sapply(combinedObj.list,ncol))>100000){
-  refIndex = vector()
-  for(group in unique(groupFile$V2)){
-    if(length(grep(group,groupFile$V2))>2){
-      refIndex = c(refIndex,sample(grep(group,groupFile$V2),1))
-    }
-  }
-  if(length(refIndex)==0){refIndex = sample(length(reference.list),1)}
-  print(refIndex)
-  combinedObj.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30,anchor.features = 3000,reference=refIndex,reduction="rpca")
-}else{
-  combinedObj.anchors <- FindIntegrationAnchors(object.list = reference.list, dims = 1:30,anchor.features = 3000,reduction="rpca")
-}
-
+combinedObj.anchors <- FindIntegrationAnchors(object.list = reference.list, normalization.method = "SCT",anchor.features = selectFeatures, dims = 1:30, reduction = "rpca", k.anchor = 20)
 combinedObj.integrated <- IntegrateData(anchorset = combinedObj.anchors, normalization.method = "SCT", dims = 1:30)
 
 combinedObj.integrated$Sample = stringr::str_split_fixed(combinedObj.integrated$Sample,pattern = "__",n = Inf)[,1]
@@ -96,25 +81,28 @@ runInt = function(obj,npcs){
 obj <- RunPCA(object = obj, npcs = npcs, verbose = FALSE)
 obj <- FindNeighbors(obj,dims = 1:npcs)
 
-for (res in resolution){
-  obj <- FindClusters(obj,verbose=F, resolution = res,algorithm = 3)#
-}
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.1,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.2,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.5,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.6,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.8,algorithm = 3)
 colnames(obj@meta.data) = gsub("integrated_snn_res","SLM_int_snn_res",colnames(obj@meta.data))
-colnames(obj@meta.data) = gsub("^SCT_snn_res","SLM_SCT_snn_res",colnames(obj@meta.data))
+colnames(obj@meta.data) = gsub("SCT_snn_res","SLM_SCT_snn_res",colnames(obj@meta.data))
 
 
-if (ncol(obj)<=75000){
- for (res in resolution){
-   obj <- FindClusters(obj,verbose=F, resolution = res,algorithm = 4,method="igraph")#
- }
- colnames(obj@meta.data) = gsub("integrated_snn_res","Leiden_int_snn_res",colnames(obj@meta.data))
- colnames(obj@meta.data) = gsub("^SCT_snn_res","Leiden_SCT_snn_res",colnames(obj@meta.data))
-}
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.1,algorithm = 4)#
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.2,algorithm = 4)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.5,algorithm = 4)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.6,algorithm = 4)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.8,algorithm = 4)
+colnames(obj@meta.data) = gsub("integrated_snn_res","Leiden_int_snn_res",colnames(obj@meta.data))
+colnames(obj@meta.data) = gsub("SCT_snn_res","Leiden_SCT_snn_res",colnames(obj@meta.data))
 
-obj <- RunUMAP(object = obj, reduction = "pca",
+
+obj <- RunUMAP(object = obj, reduction = "pca", 
                                   dims = 1:npcs,n.components = 3)
 
-obj$groups = groupFile$V2[match(gsub("S_","",obj$Sample),  groupFile$V1,nomatch = F)]
+#obj$groups = groupFile$V2[match(obj$Sample,  groupFile$V1,nomatch = F)]
 
 runSingleR = function(obj,refFile,fineORmain){
 avg = AverageExpression(obj,assays = "SCT")
@@ -157,3 +145,4 @@ combinedObj.integrated = runInt(combinedObj.integrated,npcs)
 
 
 saveRDS(combinedObj.integrated,outDirSeurat)
+

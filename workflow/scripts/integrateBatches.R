@@ -1,4 +1,5 @@
 loc = "/data/CCBR_Pipeliner/db/PipeDB/scrna4.2Rlibs"
+library(htmltools,lib.loc=loc)
 library(Seurat,lib.loc=loc)
 library("SingleR",lib.loc=loc)
 library(scRNAseq,lib.loc=loc)
@@ -6,7 +7,7 @@ library(SingleCellExperiment,lib.loc=loc)
 library(dplyr)
 library(Matrix)
 library(tools)
-library(stringr,lib.loc=loc)
+library(stringr)
 
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -102,24 +103,23 @@ runInt = function(obj,npcs){
   obj <- FindNeighbors(obj,dims = 1:npcs)
 
   for (res in resolution){
-    obj <- FindClusters(obj,verbose=F, resolution = res,algorithm = 3)#
+    obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = res,algorithm = 3)#
   }
   colnames(obj@meta.data) = gsub("integrated_snn_res","SLM_int_snn_res",colnames(obj@meta.data))
-  colnames(obj@meta.data) = gsub("^SCT_snn_res","SLM_SCT_snn_res",colnames(obj@meta.data))
+  colnames(obj@meta.data) = gsub("SCT_snn_res","SLM_SCT_snn_res",colnames(obj@meta.data))
 
+#
+# for (res in resolution){
+#   obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = res,algorithm = 4)#
+# }
+# colnames(obj@meta.data) = gsub("integrated_snn_res","Leiden_int_snn_res",colnames(obj@meta.data))
+# colnames(obj@meta.data) = gsub("SCT_snn_res","Leiden_SCT_snn_res",colnames(obj@meta.data))
 
-if (ncol(obj)<=75000){
- for (res in resolution){
-   obj <- FindClusters(obj,verbose=F,resolution = res,algorithm = 4,method="igraph")#
- }
- colnames(obj@meta.data) = gsub("integrated_snn_res","Leiden_int_snn_res",colnames(obj@meta.data))
- colnames(obj@meta.data) = gsub("^SCT_snn_res","Leiden_SCT_snn_res",colnames(obj@meta.data))
-}
 
   obj <- RunUMAP(object = obj, reduction = "pca",
                                     dims = 1:npcs,n.components = 3)
 
-obj$groups = groupFile$V2[match(gsub("S_","",obj$Sample),  groupFile$V1,nomatch = F)]
+#obj$groups = groupFile$V2[match(obj$Sample,  groupFile$V1,nomatch = F)]
 
   runSingleR = function(obj,refFile,fineORmain){
     avg = AverageExpression(obj,assays = "SCT")
@@ -158,6 +158,8 @@ obj$groups = groupFile$V2[match(gsub("S_","",obj$Sample),  groupFile$V1,nomatch 
 }
 
 if (contrasts=="None"){saveRDS(combinedObj.integrated,"intermediate_integrated.rds")}
+saveRDS(combinedObj.integrated,"int.rds")
+
 combinedObj.integrated = runInt(combinedObj.integrated,npcs)
 
 saveRDS(combinedObj.integrated,outDirSeurat)

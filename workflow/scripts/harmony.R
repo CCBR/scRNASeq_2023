@@ -1,16 +1,17 @@
 loc = "/data/CCBR_Pipeliner/db/PipeDB/scrna4.2Rlibs"
+library(htmltools,lib.loc=loc)
+library(rlang,lib.loc=loc)
+library(globals,lib.loc=loc)
+library(stringr,lib.loc=loc)
 library(harmony,lib.loc=loc)
 library("SeuratWrappers",lib.loc=loc)
-library("htmltools",lib.loc=loc)
 library(Seurat,lib.loc=loc)
 library("SingleR",lib.loc=loc)
 library(scRNAseq,lib.loc=loc)
 library(SingleCellExperiment,lib.loc=loc)
-
 library(dplyr)
-library(Matrix)
+library(Matrix) 
 library(tools)
-library(stringr, lib.loc=loc)
 
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -21,33 +22,30 @@ outDirSample = as.character(args[3])
 outDirGroup = as.character(args[4])
 ref = as.character(args[5])
 contrasts = as.character(args[6])
-resolutionString = as.character(strsplit(gsub(",+",",",as.character(args[7])),split=",")[[1]])
-resolution = as.numeric(resolutionString)
+
+
 
 options(future.globals.maxSize = 64000 * 1024^2)
 
 
 file.names <- dir(path = matrix,pattern ="rds")
-print(file.names)
 
 groupFile = read.delim("groups.tab",header=F,stringsAsFactors = F)
-if (grepl("-",contrasts,fixed=TRUE)){
-  groupFile=groupFile[groupFile$V2 %in% stringr::str_split_fixed(contrasts,pattern = "-",n = Inf)[1,],]
-  # print("test")
-}
-splitFiles = gsub(".rds","",file.names)#str_split_fixed(file.names,pattern = "[.rd]",n = 2)
-splitFiles = stringr::str_split_fixed(splitFiles,pattern = "__",n = Inf)[,1]
+groupFile=groupFile[groupFile$V2 %in% stringr::str_split_fixed(contrasts,pattern = "-",n = Inf)[1,],]
+
+splitFiles = gsub(".rds","",file.names)#str_split_fixed(file.names,pattern = "[.rd]",n = 2) 
+#splitFiles = stringr::str_split_fixed(splitFiles,pattern = "__",n = Inf)[,1]
 file.names=file.names[match(groupFile$V1,splitFiles,nomatch = F)]
 print(groupFile$V1)
 print(splitFiles)
-print(file.names)
+print(file.names)    
 
 
 readObj = list()
 for (obj in file.names) {
   Name=strsplit(obj,".rds")[[1]][1]
   assign(paste0("S_",Name),readRDS(paste0(matrix,"/",obj)))
-  readObj = append(readObj,paste0("S_",Name))
+  readObj = append(readObj,paste0("S_",Name))  
  }
 
 
@@ -55,7 +53,7 @@ for (obj in file.names) {
 combinedObj.list=list()
 i=1
 for (p in readObj){
-  combinedObj.list[[p]] <- eval(parse(text = readObj[[i]]))
+  combinedObj.list[[p]] <- eval(parse(text = readObj[[i]])) 
   combinedObj.list[[p]]$Sample = names(combinedObj.list)[i]
   i <- i + 1
  }
@@ -82,65 +80,69 @@ harmGroup <- RunHarmony(combinedObj.integratedRNA, group.by.vars = "groups",assa
 
 
 runInt = function(obj,npcs,harm){
-  obj <- RunPCA(object = obj, npcs = npcs, verbose = FALSE)
+obj <- RunPCA(object = obj, npcs = npcs, verbose = FALSE)
 
-  if(harm=="Yes") {obj <- FindNeighbors(obj,dims = 1:npcs,reduction = "harmony")}
-  if(harm=="No") {obj <- FindNeighbors(obj,dims = 1:npcs)}
+if(harm=="Yes") {obj <- FindNeighbors(obj,dims = 1:npcs,reduction = "harmony")}
+if(harm=="No") {obj <- FindNeighbors(obj,dims = 1:npcs)}
 
-  for(res in resolution){
-    obj <- FindClusters(obj,verbose=F, resolution = res,algorithm = 3)
-  }
-  colnames(obj@meta.data) = gsub("integrated_snn_res","SLM_int_snn_res",colnames(obj@meta.data))
-  colnames(obj@meta.data) = gsub("^SCT_snn_res","SLM_SCT_snn_res",colnames(obj@meta.data))
-
-   if (ncol(obj) <= 75000){  
-   for (res in resolution){
-     obj <- FindClusters(obj,verbose=F, resolution = res,algorithm = 4,method="igraph")#
-   }
-   colnames(obj@meta.data) = gsub("integrated_snn_res","Leiden_int_snn_res",colnames(obj@meta.data))
-   colnames(obj@meta.data) = gsub("^SCT_snn_res","Leiden_SCT_snn_res",colnames(obj@meta.data))
-   }
-
-  if(harm=="Yes") {obj <- RunUMAP(object = obj,dims = 1:npcs,n.components = 3,reduction = "harmony")}
-  if(harm=="No") {obj <- RunUMAP(object = obj, reduction = "pca",dims = 1:npcs,n.components = 3)}
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.1,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.2,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.5,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.6,algorithm = 3)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.8,algorithm = 3)
+colnames(obj@meta.data) = gsub("integrated_snn_res","SLM_int_snn_res",colnames(obj@meta.data))
+colnames(obj@meta.data) = gsub("SCT_snn_res","SLM_SCT_snn_res",colnames(obj@meta.data))
 
 
-  obj$groups = groupFile$V2[match(gsub("S_","",obj$Sample),  groupFile$V1,nomatch = F)]
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.1,algorithm = 4)#
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.2,algorithm = 4)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.5,algorithm = 4)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.6,algorithm = 4)
+obj <- FindClusters(obj,dims = 1:npcs, print.output = 0, resolution = 0.8,algorithm = 4)
+colnames(obj@meta.data) = gsub("integrated_snn_res","Leiden_int_snn_res",colnames(obj@meta.data))
+colnames(obj@meta.data) = gsub("SCT_snn_res","Leiden_SCT_snn_res",colnames(obj@meta.data))
 
-  runSingleR = function(obj,refFile,fineORmain){
-    avg = AverageExpression(obj,assays = "SCT")
-    avg = as.data.frame(avg)
-    ref = refFile
-    s = SingleR(test = as.matrix(avg),ref = ref,labels = ref[[fineORmain]])
 
-    clustAnnot = s$labels
-    names(clustAnnot) = colnames(avg)
-    names(clustAnnot) = gsub("SCT.","",names(clustAnnot))
+if(harm=="Yes") {obj <- RunUMAP(object = obj,dims = 1:npcs,n.components = 3,reduction = "harmony")}
+if(harm=="No") {obj <- RunUMAP(object = obj, reduction = "pca",dims = 1:npcs,n.components = 3)}
 
-    obj$clustAnnot = clustAnnot[match(obj$seurat_clusters,names(clustAnnot))]
-    return(obj$clustAnnot)
-  }
 
-  if(ref == "hg38"){
-    obj$clustAnnot_HPCA_main <- runSingleR(obj,celldex::HumanPrimaryCellAtlasData(),"label.main")
-    obj$clustAnnot_HPCA <-  runSingleR(obj,celldex::HumanPrimaryCellAtlasData(),"label.fine")
-    obj$clustAnnot_BP_encode_main <-  runSingleR(obj,celldex::BlueprintEncodeData(),"label.main")
-    obj$clustAnnot_BP_encode <-  runSingleR(obj,celldex::BlueprintEncodeData(),"label.fine")
-    obj$clustAnnot_monaco_main <-  runSingleR(obj,celldex::MonacoImmuneData(),"label.main")
-    obj$clustAnnot_monaco <- runSingleR(obj,celldex::MonacoImmuneData(),"label.fine")
-    obj$clustAnnot_immu_cell_exp_main <-  runSingleR(obj,celldex::DatabaseImmuneCellExpressionData(),"label.main")
-    obj$clustAnnot_immu_cell_exp <- runSingleR(obj,celldex::DatabaseImmuneCellExpressionData(),"label.fine")
-  }
+#obj$groups = groupFile$V2[match(obj$Sample,  groupFile$V1,nomatch = F)]
 
-  if(ref == "mm10"){
+runSingleR = function(obj,refFile,fineORmain){
+avg = AverageExpression(obj,assays = "SCT")
+avg = as.data.frame(avg)
+ref = refFile
+s = SingleR(test = as.matrix(avg),ref = ref,labels = ref[[fineORmain]])
 
-    obj$clustAnnot_immgen_main <-  runSingleR(obj,celldex::ImmGenData(),"label.main")
-    obj$clustAnnot_immgen <- runSingleR(obj,celldex::ImmGenData(),"label.fine")
-    obj$clustAnnot_mouseRNAseq_main <-  runSingleR(obj,celldex::MouseRNAseqData(),"label.main")
-    obj$clustAnnot_mouseRNAseq <- runSingleR(obj,celldex::MouseRNAseqData(),"label.fine")
+clustAnnot = s$labels
+names(clustAnnot) = colnames(avg)
+names(clustAnnot) = gsub("SCT.","",names(clustAnnot))
 
-  }
-  return(obj)
+obj$clustAnnot = clustAnnot[match(obj$seurat_clusters,names(clustAnnot))]
+return(obj$clustAnnot)
+}
+
+if(ref == "hg38"){
+obj$clustAnnot_HPCA_main <- runSingleR(obj,celldex::HumanPrimaryCellAtlasData(),"label.main")
+obj$clustAnnot_HPCA <-  runSingleR(obj,celldex::HumanPrimaryCellAtlasData(),"label.fine")
+obj$clustAnnot_BP_encode_main <-  runSingleR(obj,celldex::BlueprintEncodeData(),"label.main")
+obj$clustAnnot_BP_encode <-  runSingleR(obj,celldex::BlueprintEncodeData(),"label.fine")
+obj$clustAnnot_monaco_main <-  runSingleR(obj,celldex::MonacoImmuneData(),"label.main")
+obj$clustAnnot_monaco <- runSingleR(obj,celldex::MonacoImmuneData(),"label.fine")
+obj$clustAnnot_immu_cell_exp_main <-  runSingleR(obj,celldex::DatabaseImmuneCellExpressionData(),"label.main")
+obj$clustAnnot_immu_cell_exp <- runSingleR(obj,celldex::DatabaseImmuneCellExpressionData(),"label.fine")
+}
+
+if(ref == "mm10"){
+
+obj$clustAnnot_immgen_main <-  runSingleR(obj,celldex::ImmGenData(),"label.main")
+obj$clustAnnot_immgen <- runSingleR(obj,celldex::ImmGenData(),"label.fine")
+obj$clustAnnot_mouseRNAseq_main <-  runSingleR(obj,celldex::MouseRNAseqData(),"label.main")
+obj$clustAnnot_mouseRNAseq <- runSingleR(obj,celldex::MouseRNAseqData(),"label.fine")
+
+}
+return(obj)
 }
 
 
@@ -154,3 +156,4 @@ harmSample = runInt(harmSample,50,"Yes")
 saveRDS(combinedObj.integratedRNA,outDirMerge)
 saveRDS(harmGroup,outDirGroup)
 saveRDS(harmSample,outDirSample)
+

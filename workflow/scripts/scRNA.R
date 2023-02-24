@@ -1,4 +1,5 @@
 loc = "/data/CCBR_Pipeliner/db/PipeDB/scrna4.2Rlibs"
+library(htmltools,lib.loc=loc)
 library(Seurat,lib.loc=loc)
 library(stringr)#,lib.loc=loc)
 library("DoubletFinder",lib.loc=loc)
