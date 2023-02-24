@@ -8,10 +8,10 @@ import pandas as pd
 import numpy as np
 
 
-workpath="/data/abdelmaksoudaa/snakemake4/scH5"
+workpath="."
 specie = sys.argv[1]
 
-specie = "mm10"
+specie = "hg38"
 
 data = pd.read_csv("groups.tab", sep='\t', low_memory=False, encoding= 'unicode_escape',header = None)
 data.columns = ["sample","group","name","type"]
@@ -74,7 +74,7 @@ rule seuratIntegration:
 		. "/data/CCBR_Pipeliner/db/PipeDB/Conda/etc/profile.d/conda.sh"
 		conda activate scRNA4
 		module load R/4.2.0;
-		Rscript workflow/scripts/integrateBatches.R "seuratOut" {output}  {params.specie} {params.contrasts}
+		Rscript workflow/scripts/integrateBatches.R "seuratOut" {output}  {params.specie} {params.contrasts} "0.1,0.2,0.3,0.5,0.6,0.8,1"
 	"""
 
 
@@ -92,7 +92,7 @@ rule rpca:
 		. "/data/CCBR_Pipeliner/db/PipeDB/Conda/etc/profile.d/conda.sh"
 		conda activate scRNA4
 		module load R/4.2.0;
-		Rscript workflow/scripts/rpca.R seuratOut/ {output}  {params.specie} {params.contrasts} 
+		Rscript workflow/scripts/rpca.R seuratOut/ {output}  {params.specie} {params.contrasts} "0.1,0.2,0.3,0.5,0.6,0.8,1"
 	"""
 
 rule harmony: 
@@ -110,5 +110,5 @@ rule harmony:
 	. "/data/CCBR_Pipeliner/db/PipeDB/Conda/etc/profile.d/conda.sh"
 	conda activate scRNA4
 	module load R/4.2.0;
-	Rscript workflow/scripts/harmony.R seuratOut/ {output.merged} {output.harmonyGroup} {output.harmonySample}  {params.specie} {params.contrasts}
+	Rscript workflow/scripts/harmony.R seuratOut/ {output.merged} {output.harmonyGroup} {output.harmonySample}  {params.specie} {params.contrasts} "0.1,0.2,0.3,0.5,0.6,0.8,1"
 	"""
