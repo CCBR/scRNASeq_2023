@@ -9,4 +9,4 @@ module load R/4.2
 #module load python
 
 
-Rscript workflow/scripts/integrateBatches.R filtered integration/peak-infusion_integrated_cca.rds hg38 peak-infusion 0.2,0.4,0.6,0.8,1.0,1.2,1.4
+Rscript workflow/scripts/integrateBatches.R filtered integration/<contrast>_integrated_cca.rds hg38 <contrast> 0.2,0.4,0.6,0.8,1.0,1.2,1.4
