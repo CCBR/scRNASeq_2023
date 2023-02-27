@@ -39,6 +39,7 @@ library(scales)
 library(RColorBrewer)
 
 #Bioconductor dependencies
+library(stringr)
 library(BiocGenerics)
 library(Biobase)
 library(farver)
@@ -49,7 +50,6 @@ library(dplyr)
 library(Matrix)
 library(reshape2)
 library(tools)
-library(stringr)
 
 #statistics libraries
 # library(Routliers)
